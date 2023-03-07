@@ -1,0 +1,12 @@
+requests
+bs4
+flask
+flask-cors
+flask_sqlalchemy
+asyncio
+asgiref
+python-telegram-bot
+gunicorn
+Werkzeug
+flask-migrate
+psycopg2
