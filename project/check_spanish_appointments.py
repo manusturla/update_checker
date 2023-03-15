@@ -5,6 +5,7 @@ from project import db
 from project.models import Snapshot
 from project.telegram_bot import TelegramBot
 from config import CHECK_URL as URL
+import difflib
 
 log = logging.getLogger("gunicorn.error")
 
@@ -24,6 +25,24 @@ def get_snapshot():
     return text
 
 
+def get_difference(last_snapshot, current_snapshot):
+    diff = difflib.unified_diff(
+        last_snapshot.splitlines(),
+        current_snapshot.splitlines(),
+        fromfile="last_snapshot",
+        tofile="current_snapshot",
+    )
+    return "\n".join(diff)
+
+
+def get_message(bot, difference):
+    header = bot.prep_text("HAY CAMBIOS:\n------------------------------\n")
+    difference_section = bot.prep_code(f"```{difference}```")
+    footer = bot.prep_text(f"-------------------------------\nVer: {URL}")
+
+    return header + difference_section + footer
+
+
 async def are_changes_in_appointments_page():
     bot = TelegramBot()
     log.info("Checking for changes in appointments page")
@@ -32,7 +51,9 @@ async def are_changes_in_appointments_page():
     log.info("Last snapshot of time %s", last.created_at if last else None)
     if not last or last.text != current_snapshot:
         log.info("Changes detected. Sending telegram message")
-        await bot.send_message(f"HAY CAMBIOS. Ver: {URL}")
+        difference = get_difference(last.text, current_snapshot)
+        log.info(f"Difference detected: {difference}")
+        await bot.send_message(get_message(bot, difference))
         save_snapshot(current_snapshot)
         return True
     else:
