@@ -18,11 +18,23 @@ def save_snapshot(text):
 
 
 def get_snapshot():
-    response = requests.get(URL)
-    soup = BeautifulSoup(response.text, "html.parser")
-    text = soup.get_text()
-    log.info("Snapshot obtained from appointment page")
-    return text
+    try:
+        response = requests.get("https://www.gooe.com.ar")
+        if response.status_code != 200:
+            log.warning(
+                f"Error obtaining snapshot from appointment page. Request not OK. Status: {response.status_code}"
+            )
+            return ""
+        soup = BeautifulSoup(response.text, "html.parser")
+        text = soup.get_text()
+        log.info("Snapshot obtained from appointment page")
+        return text
+    except requests.exceptions.RequestException as e:
+        log.warning(f"Error obtaining snapshot from appointment page on GET request. \nError: {e}")
+        return ""
+    except Exception as e:
+        log.warning(f"Unkoen error when obtaining snapshot from appointment page. \nError: {e}")
+        return ""
 
 
 def get_difference(last_snapshot, current_snapshot):
@@ -49,7 +61,7 @@ async def are_changes_in_appointments_page():
     current_snapshot = get_snapshot()
     last = Snapshot.query.order_by(Snapshot.id.desc()).first()
     log.info("Last snapshot of time %s", last.created_at if last else None)
-    if not last or last.text != current_snapshot:
+    if current_snapshot and ((not last) or last.text != current_snapshot):
         log.info("Changes detected. Sending telegram message")
         difference = get_difference(last.text, current_snapshot)
         log.info(f"Difference detected: {difference}")
